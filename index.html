@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mega City Art Mapper - Master Hybrid</title>
+    <title>GeoDraw! - Urban Art Generator</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -11,7 +11,7 @@
         :root { --bg: #ffffff; --text: #1a1a1a; --panel: rgba(255,255,255,0.9); }
         body.dark-mode { --bg: #111111; --text: #f0f0f0; --panel: rgba(30,30,30,0.9); }
 
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: var(--bg); }
         
         #map { height: 100vh; width: 100vw; background-color: #f4f1ea; transition: background 0.5s; }
         body.dark-mode #map { background-color: #000000 !important; }
@@ -30,6 +30,8 @@
             font-size: 13px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             pointer-events: none; border: 1px solid rgba(0,0,0,0.1);
         }
+
+        h1 { font-size: 18px; margin: 0 0 15px 0; text-align: center; letter-spacing: 1px; }
 
         button { 
             width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; 
@@ -51,16 +53,17 @@
         #bar-outline { width: 60px; height: 200px; border: 4px solid var(--text); position: relative; }
         #bar-fill { position: absolute; bottom: 0; width: 100%; height: 0%; background: #e74c3c; transition: height 0.3s; }
         
-        #warning-txt { font-size: 10px; color: #e67e22; display: none; margin-top: 5px; text-align: center; font-weight: bold; }
-        .theme-btn { margin-top: 10px; cursor: pointer; text-decoration: underline; font-size: 11px; display: block; opacity: 0.7; }
+        #warning-txt { font-size: 10px; color: #e67e22; display: none; margin-bottom: 8px; text-align: center; font-weight: bold; }
+        .theme-btn { margin-top: 10px; cursor: pointer; text-decoration: underline; font-size: 11px; display: block; opacity: 0.7; text-align: center;}
     </style>
 </head>
 <body>
 
     <div id="ui-container">
+        <h1>GeoDraw!</h1>
+        <div id="warning-txt">⚠️ HIGH ALTITUDE: Large area detected.</div>
         <button class="btn-gen" onclick="generateArea()">GENERATE MAP</button>
         <button id="dlBtn" class="btn-dl" onclick="downloadMap()">DOWNLOAD PNG</button>
-        <div id="warning-txt">⚠️ HIGH ALTITUDE: Buildings may cause errors.</div>
         
         <div class="toggle-group">
             <div class="toggle-item"><input type="checkbox" id="showBuildings" checked onchange="refreshStyle()"> <span style="color:#9b59b6">■</span> Buildings</div>
@@ -68,9 +71,9 @@
             <div class="toggle-item"><input type="checkbox" id="showOffRoad" checked onchange="refreshStyle()"> <span style="color:#2ecc71">●</span> Off-Road</div>
             <div class="toggle-item"><input type="checkbox" id="showPaths" checked onchange="refreshStyle()"> <span style="color:#8b4513">●</span> Paths (Dots)</div>
             <div class="toggle-item"><input type="checkbox" id="showRails" checked onchange="refreshStyle()"> <span style="color:black">●</span> Railways</div>
-            <div class="toggle-item"><input type="checkbox" id="showRunways" checked onchange="refreshStyle()"> <span style="color:#7f8c8d">■</span> Runways (Grey)</div>
+            <div class="toggle-item"><input type="checkbox" id="showRunways" checked onchange="refreshStyle()"> <span style="color:#7f8c8d">■</span> Runways</div>
             <div class="toggle-item"><input type="checkbox" id="showTaxiways" checked onchange="refreshStyle()"> <span style="color:#f1c40f">●</span> Taxiways</div>
-            <span class="theme-btn" onclick="toggleTheme()">🌓 Change Theme</span>
+            <span class="theme-btn" onclick="toggleTheme()">🌓 Toggle Dark/Light</span>
         </div>
     </div>
 
@@ -79,7 +82,7 @@
     <div id="loading-screen">
         <div id="bar-outline"><div id="bar-fill"></div></div>
         <h2 id="percent">0%</h2>
-        <p>Fetching Geo-Data...</p>
+        <p>Drawing GeoDraw Art...</p>
     </div>
 
     <div id="map"></div>
@@ -88,12 +91,7 @@
     <script src="https://tyrasd.github.io/osmtogeojson/osmtogeojson.js"></script>
 
     <script>
-        const map = L.map('map', { 
-            zoomControl: false, 
-            preferCanvas: true,
-            zoomSnap: 0.1 
-        }).setView([40.6413, -73.7781], 14); // Set to an airport for testing
-        
+        const map = L.map('map', { zoomControl: false, preferCanvas: true, zoomSnap: 0.1 }).setView([40.6413, -73.7781], 14);
         let osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let currentLayer = null;
 
@@ -101,14 +99,12 @@
             const zoom = map.getZoom();
             const lat = map.getCenter().lat;
             const eyeAltFt = ((40075016.686 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom)) * 3.28084 * 0.5; 
-            
             let displayVal = Math.round(eyeAltFt);
             let unit = "ft";
             if (displayVal >= 5280) { displayVal = (displayVal / 5280).toFixed(1); unit = "mi"; }
             document.getElementById('alt-val').innerText = `${displayVal} ${unit}`;
 
             const warn = document.getElementById('warning-txt');
-            // Show warning if user is above 2.2 miles, but don't force-disable anymore
             if (zoom < 13.9) { warn.style.display = 'block'; } else { warn.style.display = 'none'; }
         }
 
@@ -117,16 +113,10 @@
 
         async function generateArea() {
             const bounds = map.getBounds();
-            
-            // Build query based on what is checked
             let filters = 'way["highway"];way["railway"];way["aeroway"];';
-            if (document.getElementById('showBuildings').checked) {
-                filters += 'way["building"];relation["building"];';
-            }
+            if (document.getElementById('showBuildings').checked) { filters += 'way["building"];relation["building"];'; }
 
-            const query = `[out:json][timeout:180];
-                ( ${filters.split(';').filter(f => f).map(f => `${f}(${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});`).join('')} );
-                out geom;`;
+            const query = `[out:json][timeout:180]; ( ${filters.split(';').filter(f => f).map(f => `${f}(${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});`).join('')} ); out geom;`;
 
             document.getElementById('loading-screen').style.display = 'flex';
             let prog = 0;
@@ -134,14 +124,12 @@
 
             try {
                 const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-                if (!res.ok) throw new Error("Server Reject");
-
+                if (!res.ok) throw new Error("Complexity Error");
                 const data = await res.json();
                 const geojson = osmtogeojson(data);
 
                 if (currentLayer) map.removeLayer(currentLayer);
                 if (map.hasLayer(osmTiles)) map.removeLayer(osmTiles);
-
                 currentLayer = L.geoJSON(geojson, { style: featureStyle }).addTo(map);
                 
                 clearInterval(iv);
@@ -151,7 +139,7 @@
                     document.getElementById('dlBtn').style.display = 'block';
                 }, 500);
             } catch (e) {
-                alert("Area too dense! Try unchecking Buildings or zooming in slightly.");
+                alert("Area too complex! Try zooming in or unchecking Buildings.");
                 clearInterval(iv);
                 document.getElementById('loading-screen').style.display = 'none';
             }
@@ -160,61 +148,37 @@
         function featureStyle(feature) {
             const t = feature.properties || {};
             const isDark = document.body.classList.contains('dark-mode');
+            const checks = {
+                runway: document.getElementById('showRunways').checked,
+                taxiway: document.getElementById('showTaxiways').checked,
+                build: document.getElementById('showBuildings').checked,
+                rail: document.getElementById('showRails').checked,
+                off: document.getElementById('showOffRoad').checked,
+                path: document.getElementById('showPaths').checked,
+                road: document.getElementById('showRoads').checked
+            };
             
-            // RUNWAYS
-            if (t.aeroway === "runway") {
-                return { color: "#7f8c8d", weight: 12, opacity: document.getElementById('showRunways').checked ? 1 : 0 }; 
-            }
-            // TAXIWAYS
-            if (t.aeroway === "taxiway") {
-                return { color: "#f1c40f", weight: 3, opacity: document.getElementById('showTaxiways').checked ? 0.8 : 0 };
-            }
-            // BUILDINGS
-            if (t.building || t.type === "building") {
-                const show = document.getElementById('showBuildings').checked;
-                return { color: "#9b59b6", fillColor: "#9b59b6", fillOpacity: show ? 0.4 : 0, weight: 0.5, opacity: show ? 0.5 : 0 };
-            }
-            // RAILWAYS
+            if (t.aeroway === "runway") return { color: "#7f8c8d", weight: 12, opacity: checks.runway ? 1 : 0 }; 
+            if (t.aeroway === "taxiway") return { color: "#f1c40f", weight: 3, opacity: checks.taxiway ? 0.8 : 0 };
+            if (t.building || t.type === "building") return { color: "#9b59b6", fillColor: "#9b59b6", fillOpacity: checks.build ? 0.4 : 0, weight: 0.5, opacity: checks.build ? 0.5 : 0 };
             if (t.railway) {
                 const abandoned = ["abandoned", "disused", "razed"].includes(t.railway);
-                return { 
-                    color: isDark ? "white" : "black", weight: 2, 
-                    opacity: document.getElementById('showRails').checked ? (abandoned ? 0.4 : 1) : 0,
-                    dashArray: abandoned ? "10, 10" : null 
-                };
+                return { color: isDark ? "white" : "black", weight: 2, opacity: checks.rail ? (abandoned ? 0.4 : 1) : 0, dashArray: abandoned ? "10, 10" : null };
             }
-            // TRACKS / OFF-ROAD
-            if (t.highway === "track" || t.highway === "service" || t.highway === "unclassified") {
-                return { color: "#2ecc71", weight: 1.5, opacity: document.getElementById('showOffRoad').checked ? 0.8 : 0, dashArray: "5, 5" };
-            }
-            // PATHS (The Dotted Style)
-            if (["path", "footway", "pedestrian", "steps", "cycleway"].includes(t.highway)) {
-                return { 
-                    color: "#8b4513", weight: 2, opacity: document.getElementById('showPaths').checked ? 0.8 : 0, 
-                    dashArray: "1, 6", lineCap: "round"
-                };
-            }
-            // DEFAULT ROADS
-            return { color: "blue", weight: 2, opacity: (document.getElementById('showRoads').checked && t.highway) ? 0.7 : 0 };
+            if (t.highway === "track" || t.highway === "service" || t.highway === "unclassified") return { color: "#2ecc71", weight: 1.5, opacity: checks.off ? 0.8 : 0, dashArray: "5, 5" };
+            if (["path", "footway", "pedestrian", "steps", "cycleway"].includes(t.highway)) return { color: "#8b4513", weight: 2, opacity: checks.path ? 0.8 : 0, dashArray: "1, 6", lineCap: "round" };
+            return { color: "blue", weight: 2, opacity: (checks.road && t.highway) ? 0.7 : 0 };
         }
 
-        function toggleTheme() { 
-            document.body.classList.toggle('dark-mode');
-            if (currentLayer) refreshStyle();
-        }
-
+        function toggleTheme() { document.body.classList.toggle('dark-mode'); if (currentLayer) refreshStyle(); }
         function refreshStyle() { if (currentLayer) currentLayer.setStyle(featureStyle); }
-
-        function updateProg(p) {
-            document.getElementById('bar-fill').style.height = p + '%';
-            document.getElementById('percent').innerText = Math.floor(p) + '%';
-        }
-
+        function updateProg(p) { document.getElementById('bar-fill').style.height = p + '%'; document.getElementById('percent').innerText = Math.floor(p) + '%'; }
+        
         function downloadMap() {
             const canvas = document.querySelector('canvas');
             if (canvas) {
                 const link = document.createElement('a');
-                link.download = 'city-masterpiece.png';
+                link.download = 'GeoDraw-Masterpiece.png';
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             }
